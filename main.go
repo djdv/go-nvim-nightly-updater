@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	bufra "github.com/avvmoto/buf-readerat"
@@ -19,42 +21,69 @@ import (
 
 func main() {
 	log.SetFlags(log.Lshortfile)
-	const (
-		repoOwner = "neovim"
-		repoName  = "neovim"
-		tagName   = "nightly"
+
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// TODO: runtime -> compile time (build constraint)
+	var defaultAssetPlat,
+		defaultAssetFormat string
+	switch runtime.GOOS {
+	case "windows":
+		defaultAssetPlat = "win64"
+		defaultAssetFormat = ".zip"
+	case "darwin":
+		defaultAssetPlat = "macos"
+		defaultAssetFormat = ".tar.gz"
+	case "linux":
+		defaultAssetPlat = "linux64"
+		defaultAssetFormat = ".tar.gz"
+	}
+
+	var (
+		defaultPath      = filepath.Join(usr.HomeDir, "path")
+		defaultAssetName = "nvim-" + defaultAssetPlat + defaultAssetFormat
+
+		repoOwner = flag.String("owner", "neovim", "Repository's owner")
+		repoName  = flag.String("repo", "neovim", "Repository's name")
+		tagName   = flag.String("tag", "nightly", "Release tag to look for")
+		assetName = flag.String("release", defaultAssetName, "Release asset to fetch")
+		target    = flag.String("path", defaultPath, "Path to install to")
 	)
+	flag.Parse()
+
 	var (
 		ctx    = context.Background()
 		client = github.NewClient(nil)
 	)
 
 	repoRelease, _, err := client.Repositories.GetReleaseByTag(
-		ctx, repoOwner, repoName, tagName,
+		ctx, *repoOwner, *repoName, *tagName,
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	const windowsReleaseName = "nvim-win64.zip"
-	var windowsRelease *github.ReleaseAsset
+	var releaseAsset *github.ReleaseAsset
 	for _, release := range repoRelease.Assets {
 		if release.Name == nil {
 			continue
 		}
-		if *release.Name == windowsReleaseName {
-			windowsRelease = release
+		if *release.Name == *assetName {
+			releaseAsset = release
 			break
 		}
 	}
-	if windowsRelease == nil {
-		log.Fatalf("%q not found?", windowsReleaseName)
+	if releaseAsset == nil {
+		log.Fatalf("%q not found?", *assetName)
 	}
 
-	if windowsRelease.BrowserDownloadURL == nil {
-		log.Fatalf("%q's url was nil", windowsReleaseName)
+	if releaseAsset.BrowserDownloadURL == nil {
+		log.Fatalf("%q's url was nil", *assetName)
 	}
-	releaseAssetUrl := *windowsRelease.BrowserDownloadURL
+	releaseAssetUrl := *releaseAsset.BrowserDownloadURL
 
 	fmt.Println("grabbing: ", releaseAssetUrl)
 	assetRequest, err := http.NewRequest(http.MethodGet, releaseAssetUrl, nil)
@@ -76,14 +105,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// TODO: get target from args
-	usr, err := user.Current()
-	if err != nil {
-		log.Fatal(err)
-	}
-	target := filepath.Join(usr.HomeDir, "path")
-
-	if err := staggedExtraction(assetZipReader, target); err != nil {
+	if err := staggedExtraction(assetZipReader, *target); err != nil {
 		log.Println(err)
 	}
 
