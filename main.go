@@ -88,11 +88,8 @@ func main() {
 	}
 
 	if assetRequest.Close {
-		close := assetRequest.Response.Body.Close
-		if close != nil {
-			if err := close(); err != nil {
-				log.Println(err)
-			}
+		if err := assetRequest.Response.Body.Close(); err != nil {
+			log.Println(err)
 		}
 	}
 }
