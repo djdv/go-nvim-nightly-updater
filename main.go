@@ -40,9 +40,15 @@ func main() {
 	}
 
 	var (
+		// TODO: Reconsider a good default value for this.
+		// Even ~/bin makes no sense for trees (e.g. `~/bin/nvim/bin/nvim`)
 		defaultPath      = filepath.Join("~", "path")
 		defaultAssetName = "nvim-" + defaultAssetPlat + defaultAssetFormat
 
+		// TODO: Better utilize the flags package.
+		// As-is, default values are printed with %q which is gross.
+		// And a flagset might let us abstract some things out of main.
+		// Also try to reduce indirection if possible.
 		repoOwner = flag.String("owner", "neovim", "Repository's owner")
 		repoName  = flag.String("repo", "neovim", "Repository's name")
 		tagName   = flag.String("tag", "nightly", "Release tag to look for")
