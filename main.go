@@ -22,11 +22,6 @@ import (
 func main() {
 	log.SetFlags(log.Lshortfile)
 
-	usr, err := user.Current()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	// TODO: runtime -> compile time (build constraint)
 	var defaultAssetPlat,
 		defaultAssetFormat string
@@ -43,7 +38,7 @@ func main() {
 	}
 
 	var (
-		defaultPath      = filepath.Join(usr.HomeDir, "path")
+		defaultPath      = filepath.Join("~", "path")
 		defaultAssetName = "nvim-" + defaultAssetPlat + defaultAssetFormat
 
 		repoOwner = flag.String("owner", "neovim", "Repository's owner")
@@ -53,6 +48,7 @@ func main() {
 		target    = flag.String("path", defaultPath, "Path to install to")
 	)
 	flag.Parse()
+	maybeExpandTilde(target)
 
 	var (
 		ctx    = context.Background()
@@ -172,4 +168,17 @@ func extract(zipReader *zip.Reader, target string) error {
 	}
 
 	return nil
+}
+
+func maybeExpandTilde(path *string) {
+	p := *path
+	if !strings.HasPrefix(p, "~") {
+		return
+	}
+
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+	*path = filepath.Join(usr.HomeDir, (p)[1:])
 }
