@@ -22,6 +22,8 @@ import (
 func main() {
 	log.SetFlags(log.Lshortfile)
 
+	// FIXME: We have a hard coded expectation for zip
+	// tars, et al. aint gonna extract.
 	// TODO: runtime -> compile time (build constraint)
 	var defaultAssetPlat,
 		defaultAssetFormat string
