@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -127,14 +128,14 @@ func staggedExtraction(zipReader *zip.Reader, target string) error {
 
 func extract(zipReader *zip.Reader, target string) error {
 	// Closure to address file descriptors issue with all the deferred .Close() methods
-	extractAndWriteFile := func(f *zip.File) error {
+	extractAndWriteFile := func(f *zip.File) (err error) {
 		rc, err := f.Open()
 		if err != nil {
 			return err
 		}
 		defer func() {
-			if err := rc.Close(); err != nil {
-				panic(err)
+			if cErr := rc.Close(); cErr != nil {
+				err = errors.Join(err, cErr)
 			}
 		}()
 
@@ -154,8 +155,8 @@ func extract(zipReader *zip.Reader, target string) error {
 				return err
 			}
 			defer func() {
-				if err := f.Close(); err != nil {
-					panic(err)
+				if cErr := f.Close(); cErr != nil {
+					err = errors.Join(err, cErr)
 				}
 			}()
 
